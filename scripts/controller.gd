@@ -1,6 +1,6 @@
 @abstract
 class_name Controller
-extends Node
+extends Resource
 
 var _direction: int
 var _has_dropped: bool

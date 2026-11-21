@@ -1,15 +1,13 @@
 [gd_scene format=3 uid="uid://bwh1ajk5an0kr"]
 
-[ext_resource type="Script" uid="uid://brplfvlmgob51" path="res://scenes/grid.gd" id="1_2s7k2"]
+[ext_resource type="Script" uid="uid://brplfvlmgob51" path="res://scenes/grid/grid.gd" id="1_2s7k2"]
 [ext_resource type="TileSet" uid="uid://cw55dvkw2bu20" path="res://assets/tetris_patterns.tres" id="1_t5fjg"]
-[ext_resource type="Script" uid="uid://c6nnvotrp6gk7" path="res://scripts/player_controller.gd" id="3_2s7k2"]
+[ext_resource type="Script" uid="uid://buwwsbcg3jvku" path="res://scenes/grid/tile_grid.gd" id="3_2s7k2"]
 
 [node name="Board" type="Node2D" unique_id=503435097]
 script = ExtResource("1_2s7k2")
 
 [node name="TileGrid" type="TileMapLayer" parent="." unique_id=440242890]
+unique_name_in_owner = true
 tile_set = ExtResource("1_t5fjg")
-
-[node name="PlayerController" type="Node" parent="." unique_id=1018761708]
 script = ExtResource("3_2s7k2")
-metadata/_custom_type_script = "uid://c6nnvotrp6gk7"
