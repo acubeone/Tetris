@@ -1,3 +1,4 @@
+class_name Board
 extends Node2D
 
 enum ControllerType {
@@ -11,7 +12,6 @@ enum ControllerType {
 var _controller: Controller
 
 
-
 func _ready() -> void:
 	match controller_type:
 		ControllerType.PlayerOne:
@@ -20,3 +20,7 @@ func _ready() -> void:
 			_controller = PlayerController.new(PlayerController.PLAYER_TWO)
 		ControllerType.Cpu:
 			_controller = CpuController.new()
+
+
+func _process(delta: float) -> void:
+	_controller.poll(delta, self)
