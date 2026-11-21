@@ -40,17 +40,18 @@ func can_place(cells: Array[Vector2i], origin: Vector2i) -> bool:
 	return true
 
 
-func lock(cells: Array[Vector2i], origin: Vector2i, id: int) -> bool:
+func lock(cells: Array[Vector2i], origin: Vector2i, blocks: PackedInt32Array) -> bool:
 	var success := true
 
-	for cell in cells:
-		var pos := origin + cell
+	for i in cells.size():
+		var pos := origin + cells[i]
 
-		# If cell is above grid, it is out-of-bounds, but accepted on board
+		# If cell is above grid, it cannot be locked :C
 		if pos.y < 0:
 			success = false
 			continue
-		_cells[pos.x + (pos.y + _width)] = id
+
+		_cells[pos.x + (pos.y + _width)] = blocks[i]
 
 	changed.emit()
 	return success
