@@ -15,7 +15,7 @@ func is_drop_held() -> bool:
 	return _drop_held
 
 
-func cosume_rotate() -> bool:
+func consume_rotate() -> bool:
 	var rotate := _rotate_queued
 	_rotate_queued = false
 	return rotate
