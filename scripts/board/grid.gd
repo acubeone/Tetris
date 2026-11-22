@@ -4,7 +4,7 @@ extends RefCounted
 signal changed ## Always emitted when grid is dirty
 signal line_cleared(line: PackedInt32Array) ## Always called after each line cleared
 
-const EMPTY_CELL := 0
+const EMPTY_CELL := -1
 
 var _width: int
 var _height: int
@@ -12,7 +12,7 @@ var _height: int
 var _cells: PackedInt32Array
 
 
-func _init(width: int = 10, height: int = 40) -> void:
+func _init(width: int = 10, height: int = 20) -> void:
 	_width = width
 	_height = height
 
@@ -32,8 +32,8 @@ func is_empty(pos: Vector2i) -> bool:
 	return pos.y < 0 or _cells[pos.x + (pos.y * _width)] == EMPTY_CELL
 
 
+## Check all cells positions and return false if any collisions are found
 func can_place(cells: Array[Vector2i], origin: Vector2i) -> bool:
-	## Check all cells positions and return false if any collisions are found
 	for cell in cells:
 		if not is_empty(origin + cell):
 			return false
@@ -51,7 +51,7 @@ func lock(cells: Array[Vector2i], origin: Vector2i, blocks: PackedInt32Array) ->
 			success = false
 			continue
 
-		_cells[pos.x + (pos.y + _width)] = blocks[i]
+		_cells[pos.x + (pos.y * _width)] = blocks[i]
 
 	changed.emit()
 	return success
@@ -60,7 +60,7 @@ func lock(cells: Array[Vector2i], origin: Vector2i, blocks: PackedInt32Array) ->
 func clear_lines() -> int:
 	var cleared := 0
 	var y := _height - 1
-	while y >= 0: # Go top to bottom
+	while y >= 0: # Walk bottom to top
 		if !_is_row_complete(y):
 			y -= 1
 			continue # Check next row
@@ -84,8 +84,13 @@ func get_height() -> int:
 	return _height
 
 
-## Check if any cell in the current row is empty
+## Check if current row is filled
 func _is_row_complete(y: int) -> bool:
+	assert(
+		y >= 0 and y < _height,
+		"row %d out of range (height %d, cells %d)" % [y, _height, _cells.size()],
+	)
+
 	for x in _width:
 		if _cells[x + (y * _width)] == EMPTY_CELL:
 			return false

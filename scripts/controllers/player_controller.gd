@@ -4,15 +4,13 @@ extends Controller
 const PLAYER_ONE := 0
 const PLAYER_TWO := 1
 
-@export_enum("P1:0", "P2:1") var player: int
-
 var _move_left: StringName
 var _move_right: StringName
 var _action_drop: StringName
 var _action_rotate: StringName
 
 
-func _init() -> void:
+func _init(player: int) -> void:
 	assert(player in [PLAYER_ONE, PLAYER_TWO], "Use PLAYER_ONE or PLAYER_TWO!")
 
 	var player_name := "p1" if player == PLAYER_ONE else "p2"

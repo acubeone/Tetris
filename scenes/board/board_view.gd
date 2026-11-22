@@ -6,7 +6,7 @@ extends Node2D
 @onready var _active: TileMapLayer = $Active
 
 
-func draw_grid(grid: Grid) -> void:
+func draw_locked(grid: Grid) -> void:
 	_locked.clear()
 
 	for y in grid.get_height():

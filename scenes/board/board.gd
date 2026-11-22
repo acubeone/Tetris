@@ -10,14 +10,24 @@ signal reserved_changed(piece: Piece)
 signal effect_started(effect: BoardEffect)
 signal effect_ended(effect: BoardEffect)
 
-const SOFT_DROP_INTERVAL := 0.04
+enum PlayerKind {
+	CPU,
+	PLAYER_ONE,
+	PLAYER_TWO,
+}
+
+const SOFT_DROP_MULTIPLIER := 6.0
+const SOFT_DROP_MIN_INTERVAL := 0.06
+const MIN_FALL_INTERVAL := 0.01
+
+const AUTOREPEAT_DELAY := 0.15
+const AUTOREPEAT_INTERVAL := 0.05
 
 @export var pieces: Array[Piece]
-@export var controller: Controller
 @export var base_fall_interval := 0.8 ## Time in seconds
 
-var delay_autorepeat := 0.15
-var autorepat_interval := 0.5
+var controller: Controller
+
 var grid := Grid.new()
 var effects: EffectRunner
 
@@ -30,6 +40,16 @@ var _step_timer := 0.0
 var _prev_dir := 0
 
 @onready var _view: BoardView = $BoardView
+
+
+static func make_controller(kind: PlayerKind) -> Controller:
+	match kind:
+		PlayerKind.PLAYER_ONE:
+			return PlayerController.new(PlayerController.PLAYER_ONE)
+		PlayerKind.PLAYER_TWO:
+			return PlayerController.new(PlayerController.PLAYER_TWO)
+		_:
+			return CpuController.new()
 
 
 func _init() -> void:
@@ -49,22 +69,30 @@ func _ready() -> void:
 	grid.line_cleared.connect(_line_cleared)
 
 	_next_piece = _pick_random()
-	_spawn()
+	_place(take_next())
 
 
 func _process(delta: float) -> void:
 	if not is_playing():
 		return
 	controller.poll(delta, self)
-	effects.tick(delta)
 
-	if is_playing():
-		_step_horizontal(delta)
-		if controller.consume_rotate():
-			rotate_piece()
-		_step_gravity(delta)
-		if is_playing(): # Locking can do a gameover
-			_view.draw_piece(_active_piece, grid)
+
+func _physics_process(delta: float) -> void:
+	if not is_playing():
+		return
+
+	effects.tick(delta)
+	if not is_playing():
+		return # An effect can lead to a gameover
+
+	_step_horizontal(delta)
+	if controller.consume_rotate():
+		rotate_piece()
+	_step_gravity(delta)
+
+	if is_playing(): # Locking can do a gameover
+		_view.draw_piece(_active_piece, grid)
 
 
 func is_playing() -> bool:
@@ -124,13 +152,15 @@ func _step_horizontal(delta: float) -> void:
 # Only apply gravity if timer reaches accumulated interval.
 # If it can't move down, lock tile in place
 func _step_gravity(delta: float) -> void:
-	_fall_timer += delta
+	_fall_timer += minf(delta, 0.1)
 	var interval := _fall_interval()
-	while _fall_timer >= interval and is_playing():
-		_fall_timer -= interval
-		if not _active_piece.try_move(grid, Vector2i.DOWN):
-			_lock_piece()
-			return
+	if _fall_timer < interval:
+		return # Do not go down
+
+	# Keep left-over time
+	_fall_timer = minf(_fall_timer - interval, interval)
+	if not _active_piece.try_move(grid, Vector2i.DOWN):
+		_lock_piece()
 
 
 # Check next step, always return: -1, 0, or 1
@@ -140,12 +170,12 @@ func _step(delta: float, dir: int) -> int:
 		return 0 # Nothing changed
 	if dir != _prev_dir:
 		_prev_dir = dir
-		_step_timer = delay_autorepeat
+		_step_timer = AUTOREPEAT_DELAY
 		return dir
 
 	_step_timer -= delta
 	if _step_timer <= 0.0:
-		_step_timer = autorepat_interval
+		_step_timer = AUTOREPEAT_INTERVAL
 		return dir
 	return 0
 
@@ -155,12 +185,9 @@ func _step(delta: float, dir: int) -> int:
 func _fall_interval() -> float:
 	var interval := effects.apply_fall_interval(base_fall_interval)
 	if controller.is_drop_held():
-		interval = minf(interval, SOFT_DROP_INTERVAL)
-	return maxf(interval, 0.01)
-
-
-func _spawn() -> void:
-	_place(take_next())
+		var soft := maxf(interval / SOFT_DROP_MULTIPLIER, SOFT_DROP_MIN_INTERVAL)
+		interval = minf(interval, soft)
+	return maxf(interval, MIN_FALL_INTERVAL)
 
 
 func _place(piece: Piece) -> void:
@@ -177,7 +204,7 @@ func _lock_piece() -> void:
 	piece_locked.emit()
 	grid.clear_lines()
 	if alive:
-		_spawn()
+		_place(take_next())
 	else:
 		_end_game()
 
@@ -203,7 +230,7 @@ func _pick_random() -> Piece:
 
 
 func _render_locked() -> void:
-	pass # TODO: Update TileMaps
+	_view.draw_locked(grid)
 
 
 func _line_cleared(line: PackedInt32Array) -> void:
