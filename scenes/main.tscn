@@ -1,7 +1,18 @@
 [gd_scene format=3 uid="uid://dud4dyfasaqgw"]
 
 [ext_resource type="PackedScene" uid="uid://bwh1ajk5an0kr" path="res://scenes/board/board.tscn" id="1_o5qli"]
+[ext_resource type="Script" uid="uid://bichd7y6wa3i4" path="res://scripts/board/piece.gd" id="2_0wfyh"]
+[ext_resource type="Resource" uid="uid://bv3cl2x2ihia1" path="res://assets/pieces/straight_line.tres" id="3_jyhfs"]
+[ext_resource type="Script" uid="uid://c6nnvotrp6gk7" path="res://scripts/controllers/player_controller.gd" id="3_sugp2"]
+
+[sub_resource type="Resource" id="Resource_jyhfs"]
+script = ExtResource("3_sugp2")
+metadata/_custom_type_script = "uid://c6nnvotrp6gk7"
 
 [node name="Main" type="Node" unique_id=205280607]
 
 [node name="Board" parent="." unique_id=503435097 instance=ExtResource("1_o5qli")]
+position = Vector2(448, 0)
+pieces = Array[ExtResource("2_0wfyh")]([ExtResource("3_jyhfs")])
+controller = SubResource("Resource_jyhfs")
+base_fall_interval = null

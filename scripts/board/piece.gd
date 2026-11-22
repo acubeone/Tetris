@@ -9,6 +9,28 @@ var source_id: int
 var cells: Array[Vector2i]
 var tiles: Array[Vector2i]
 
+## 90° clockwise steps
+const ROTATION_FLAGS := [
+	0,
+	TileSetAtlasSource.TRANSFORM_FLIP_H | TileSetAtlasSource.TRANSFORM_TRANSPOSE,
+	TileSetAtlasSource.TRANSFORM_FLIP_H | TileSetAtlasSource.TRANSFORM_FLIP_V,
+	TileSetAtlasSource.TRANSFORM_FLIP_V | TileSetAtlasSource.TRANSFORM_TRANSPOSE,
+]
+
+
+## Bitlayout:
+## source(12) | atlas.x(8) | atlas.y(8) | rotation (4)
+static func pack(source: int, atlas: Vector2i, rotation: int) -> int:
+	return (source << 20) | (atlas.x << 12) | (atlas.y << 4) | posmod(rotation, 4)
+
+
+static func paint(layer: TileMapLayer, pos: Vector2i, block: int) -> void:
+	var atlas_x := (block >> 12) & 0xff
+	var atlas_y := (block >> 4) & 0xff
+	var source := (block >> 20) & 0x0fff
+	var rotation := block & 0x03
+	layer.set_cell(pos, source, Vector2i(atlas_x, atlas_y), ROTATION_FLAGS[rotation])
+
 
 func setup() -> void:
 	cells.clear()
@@ -45,5 +67,5 @@ func get_cells(rotation: int) -> Array[Vector2i]:
 func get_blocks(rotation: int) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	for tile in tiles:
-		out.append(Block.pack(source_id, tile, rotation))
+		out.append(pack(source_id, tile, rotation))
 	return out

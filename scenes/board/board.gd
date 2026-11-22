@@ -1,9 +1,210 @@
 class_name Board
 extends Node2D
 
-var _controller: Controller
-var _grid: Grid
+signal piece_locked
+signal gameover
+
+signal line_cleared(line: PackedInt32Array)
+signal next_changed(piece: Piece)
+signal reserved_changed(piece: Piece)
+signal effect_started(effect: BoardEffect)
+signal effect_ended(effect: BoardEffect)
+
+const SOFT_DROP_INTERVAL := 0.04
+
+@export var pieces: Array[Piece]
+@export var controller: Controller
+@export var base_fall_interval := 0.8 ## Time in seconds
+
+var delay_autorepeat := 0.15
+var autorepat_interval := 0.5
+var grid := Grid.new()
+var effects: EffectRunner
+
+var _active_piece: ActivePiece # If this is null, then it's gameover!
+var _next_piece: Piece
+var _reserved_piece: Piece
+
+var _fall_timer := 0.0
+var _step_timer := 0.0
+var _prev_dir := 0
+
+@onready var _view: BoardView = $BoardView
+
+
+func _init() -> void:
+	effects = EffectRunner.new(self)
+	effects.started.connect(effect_started.emit)
+	effects.ended.connect(effect_ended.emit)
+
+
+func _ready() -> void:
+	assert(controller != null, "Controller is not set in board!")
+	assert(not pieces.is_empty(), "Pieces pool is empty!")
+
+	for piece in pieces:
+		piece.setup()
+
+	grid.changed.connect(_render_locked)
+	grid.line_cleared.connect(_line_cleared)
+
+	_next_piece = _pick_random()
+	_spawn()
 
 
 func _process(delta: float) -> void:
-	_controller.poll(delta, self)
+	if not is_playing():
+		return
+	controller.poll(delta, self)
+	effects.tick(delta)
+
+	if is_playing():
+		_step_horizontal(delta)
+		if controller.consume_rotate():
+			rotate_piece()
+		_step_gravity(delta)
+		if is_playing(): # Locking can do a gameover
+			_view.draw_piece(_active_piece, grid)
+
+
+func is_playing() -> bool:
+	return _active_piece != null
+
+
+func add_effect(effect: BoardEffect) -> void:
+	if is_playing():
+		effects.add(effect)
+
+
+func rotate_piece() -> bool:
+	return is_playing() and _active_piece.try_rotate(grid)
+
+
+func reset_piece() -> void:
+	if not is_playing():
+		return
+
+	var spawn := _spawn_pos()
+	if grid.can_place(_active_piece.cells, spawn):
+		_active_piece.pos = spawn
+		_fall_timer = 0.0
+
+
+## Stores `current` and returns the next piece. If slot was empty, returns
+## a new one
+func swap_reserved(current: Piece) -> Piece:
+	var next := _reserved_piece
+	_reserved_piece = current
+	reserved_changed.emit(_reserved_piece)
+	return next if next != null else take_next()
+
+
+func take_next() -> Piece:
+	var piece := _next_piece
+	_next_piece = _pick_random()
+	next_changed.emit(_next_piece)
+	return piece
+
+
+func peek_next() -> Piece:
+	return _next_piece
+
+
+func peek_reserved() -> Piece:
+	return _reserved_piece
+
+
+func _step_horizontal(delta: float) -> void:
+	var dir := effects.apply_direction(controller.get_direction())
+	var step := _step(delta, dir)
+	if step != 0:
+		_active_piece.try_move(grid, Vector2i(step, 0))
+
+
+# Only apply gravity if timer reaches accumulated interval.
+# If it can't move down, lock tile in place
+func _step_gravity(delta: float) -> void:
+	_fall_timer += delta
+	var interval := _fall_interval()
+	while _fall_timer >= interval and is_playing():
+		_fall_timer -= interval
+		if not _active_piece.try_move(grid, Vector2i.DOWN):
+			_lock_piece()
+			return
+
+
+# Check next step, always return: -1, 0, or 1
+func _step(delta: float, dir: int) -> int:
+	if dir == 0:
+		_prev_dir = 0
+		return 0 # Nothing changed
+	if dir != _prev_dir:
+		_prev_dir = dir
+		_step_timer = delay_autorepeat
+		return dir
+
+	_step_timer -= delta
+	if _step_timer <= 0.0:
+		_step_timer = autorepat_interval
+		return dir
+	return 0
+
+
+# The fall interval is the accumulated effects, or the soft-drop
+# when drop is held. Also, fall interval is always 100ms
+func _fall_interval() -> float:
+	var interval := effects.apply_fall_interval(base_fall_interval)
+	if controller.is_drop_held():
+		interval = minf(interval, SOFT_DROP_INTERVAL)
+	return maxf(interval, 0.01)
+
+
+func _spawn() -> void:
+	_place(take_next())
+
+
+func _place(piece: Piece) -> void:
+	effects.end_piece_bound() # Any new placed piece ends the piece-bounded effects
+	_active_piece = ActivePiece.new(piece, _spawn_pos())
+	_fall_timer = 0.0
+
+	if not grid.can_place(_active_piece.cells, _active_piece.pos):
+		_end_game() # Oh no
+
+
+func _lock_piece() -> void:
+	var alive := _active_piece.lock_into(grid)
+	piece_locked.emit()
+	grid.clear_lines()
+	if alive:
+		_spawn()
+	else:
+		_end_game()
+
+
+func _end_game() -> void:
+	_active_piece = null
+	effects.end_all()
+	_view.clear_piece()
+	gameover.emit()
+
+
+func _spawn_pos() -> Vector2i:
+	return Vector2i(grid.get_width() >> 1, 0) # Always in the middle
+
+
+func _pick_random() -> Piece:
+	var weights := PackedFloat32Array()
+	for piece in pieces:
+		weights.append(piece.weight)
+
+	var index := GameRng.pieces.rand_weighted(weights)
+	return pieces[index]
+
+
+func _render_locked() -> void:
+	pass # TODO: Update TileMaps
+
+
+func _line_cleared(line: PackedInt32Array) -> void:
+	line_cleared.emit(line)
