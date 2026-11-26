@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Piece" format=3 uid="uid://b6j3sefnpo1jr"]
+
+[ext_resource type="Script" uid="uid://bichd7y6wa3i4" path="res://scripts/board/piece.gd" id="1_qdjkg"]
+
+[sub_resource type="TileMapPattern" id="TileMapPattern_qdjkg"]
+tile_data = PackedInt32Array(0, 131073, 0, 1, 196609, 0, 65537, 196609, 1, 2, 262145, 0)
+
+[resource]
+script = ExtResource("1_qdjkg")
+pattern = SubResource("TileMapPattern_qdjkg")
+pivot = Vector2i(0, 2)
