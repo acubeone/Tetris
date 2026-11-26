@@ -34,6 +34,9 @@ func is_empty(pos: Vector2i) -> bool:
 
 ## Check all cells positions and return false if any collisions are found
 func can_place(cells: Array[Vector2i], origin: Vector2i) -> bool:
+	if cells.is_empty():
+		return false
+
 	for cell in cells:
 		if not is_empty(origin + cell):
 			return false
