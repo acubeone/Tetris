@@ -112,7 +112,7 @@ func reset_piece() -> void:
 	if not is_playing():
 		return
 
-	var spawn := _spawn_pos()
+	var spawn := get_spawnpoint()
 	if grid.can_place(_active_piece.cells, spawn):
 		_active_piece.pos = spawn
 		_fall_timer = 0.0
@@ -134,12 +134,20 @@ func take_next() -> Piece:
 	return piece
 
 
+func get_active_piece() -> ActivePiece:
+	return _active_piece
+
+
 func peek_next() -> Piece:
 	return _next_piece
 
 
 func peek_reserved() -> Piece:
 	return _reserved_piece
+
+
+func get_spawnpoint() -> Vector2i:
+	return Vector2i(grid.get_width() >> 1, 0) # Always in the middle
 
 
 func _step_horizontal(delta: float) -> void:
@@ -192,7 +200,7 @@ func _fall_interval() -> float:
 
 func _place(piece: Piece) -> void:
 	effects.end_piece_bound() # Any new placed piece ends the piece-bounded effects
-	_active_piece = ActivePiece.new(piece, _spawn_pos())
+	_active_piece = ActivePiece.new(piece, get_spawnpoint())
 	_fall_timer = 0.0
 
 	if not grid.can_place(_active_piece.cells, _active_piece.pos):
@@ -214,10 +222,6 @@ func _end_game() -> void:
 	effects.end_all()
 	_view.clear_piece()
 	gameover.emit()
-
-
-func _spawn_pos() -> Vector2i:
-	return Vector2i(grid.get_width() >> 1, 0) # Always in the middle
 
 
 func _pick_random() -> Piece:

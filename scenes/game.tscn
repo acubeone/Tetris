@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://dud4dyfasaqgw"]
+
+[ext_resource type="Script" uid="uid://dkquq271skqo" path="res://scenes/game.gd" id="1_kvpfn"]
+[ext_resource type="Script" uid="uid://bichd7y6wa3i4" path="res://scripts/board/piece.gd" id="2_dinhu"]
+[ext_resource type="Resource" uid="uid://diuyw2pehiugf" path="res://assets/pieces/banana.tres" id="3_kvuet"]
+[ext_resource type="Resource" uid="uid://dni0ujwlchn34" path="res://assets/pieces/carrot.tres" id="4_trtic"]
+[ext_resource type="Resource" uid="uid://clid8lcanvj2y" path="res://assets/pieces/cherry.tres" id="5_ir15t"]
+[ext_resource type="Resource" uid="uid://d201eenoruogq" path="res://assets/pieces/cucumber.tres" id="6_ca42v"]
+[ext_resource type="Resource" uid="uid://cgylnm0p2cv00" path="res://assets/pieces/eggplant.tres" id="7_rysoc"]
+[ext_resource type="Resource" uid="uid://b6j3sefnpo1jr" path="res://assets/pieces/mushroom.tres" id="8_ssvqc"]
+[ext_resource type="Resource" uid="uid://1okg0jmb5g56" path="res://assets/pieces/pea.tres" id="9_264po"]
+[ext_resource type="Resource" uid="uid://dfkgliod7xk7c" path="res://assets/pieces/pepper.tres" id="10_1kice"]
+[ext_resource type="Resource" uid="uid://bhgb2mthi127r" path="res://assets/pieces/tomato.tres" id="11_5newe"]
+
+[node name="Game" type="Node" unique_id=205280607]
+script = ExtResource("1_kvpfn")
+pieces = Array[ExtResource("2_dinhu")]([ExtResource("3_kvuet"), ExtResource("4_trtic"), ExtResource("5_ir15t"), ExtResource("6_ca42v"), ExtResource("7_rysoc"), ExtResource("8_ssvqc"), ExtResource("9_264po"), ExtResource("10_1kice"), ExtResource("11_5newe")])
+game_type = 6
+
+[node name="BoardOne" type="Marker2D" parent="." unique_id=1262909597]
+gizmo_extents = 48.0
+
+[node name="BoardTwo" type="Marker2D" parent="." unique_id=1252635933]
+position = Vector2(448, 0)
+gizmo_extents = 48.0
