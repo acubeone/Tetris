@@ -1,3 +1,4 @@
+@tool
 class_name Piece
 extends Resource
 
@@ -38,7 +39,7 @@ static func paint(layer: TileMapLayer, pos: Vector2i, block: int) -> void:
 func setup() -> void:
 	assert(
 		posmod(pivot.x - pivot.y, 2) == 0,
-		"pivot %s isn't a edge of cell. Use (even, even) or (odd, odd)" % pivot,
+		"pivot %s isn't the edge of cell. Use (even, even) or (odd, odd)" % pivot,
 	)
 
 	cells.clear()
@@ -48,7 +49,7 @@ func setup() -> void:
 	assert(not used.is_empty(), "Piece pattern is empty!")
 	source_id = pattern.get_cell_source_id(used[0])
 
-	# Positions are integers, so keep archo relative to the cell holding the pivot
+	# Positions are integers, so keep archor relative to the cell holding the pivot
 	var anchor := Vector2i(floori(pivot.x / 2.0), floori(pivot.y / 2.0))
 	_anchored_pivot = pivot - (anchor * 2) # Each component is 0 or 1
 	for cell in used:
@@ -65,6 +66,10 @@ func is_valid() -> bool:
 	return not cells.is_empty() and cells.size() == tiles.size()
 
 
+func get_anchored_pivot() -> Vector2i:
+	return _anchored_pivot
+
+
 func get_cells(rotation: int) -> Array[Vector2i]:
 	return _rotated[posmod(rotation, 4)]
 
@@ -79,7 +84,7 @@ func get_blocks(rotation: int) -> PackedInt32Array:
 func _calculate_rotation(rot: int) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 
-	# Eatch rotation is 90° clockwise
+	# Eatch rotation is 90° clockwise steps
 	for cell in cells:
 		var offset := (cell * 2) - _anchored_pivot # Use half cells
 		var turned: Vector2i

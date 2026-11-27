@@ -1,115 +1,214 @@
 ## I have asked Claude to do most of this code, I could do everything manually,
-## but I don't want to. In the end, I understand what this do anyways.
+## but I don't want to
 @tool
 class_name PiecePainter
 extends TileMapLayer
 
-var piece_name := ""
-var weight := 1.0
-var save_path := "res://assets/pieces"
-var pivot := Vector2i.ZERO:
-	set(val):
-		pivot = val
-		_update_marker()
-		update_configuration_warnings()
+const MARKER_NAME := "PivotMarker"
+const PREVIEW_NAME := "Preview"
 
-@onready var _pivot_marker := $PivotMarker
+@export_group("Piece")
+@export var piece_name := "carrot"
+@export var weight := 1.0
+## Pivot in HALF tiles, in the coordinates you painted.
+## (even, even) = center of a cell, (odd, odd) = corner shared by four cells.
+@export var pivot := Vector2i.ZERO:
+	set(value):
+		pivot = value
+		_queue_refresh()
+
+@export_group("Files")
+@export_dir var save_dir := "res://pieces"
+@export var piece_to_edit: Piece ## drop an existing .tres here, then press "Load piece"
+
+@export_group("Actions")
+@export_tool_button("Load piece") var load_button = _load_piece
+@export_tool_button("Save piece") var save_button = _save_piece
+@export_tool_button("Clear") var clear_button = _clear_all
+@export_tool_button("Refresh preview") var refresh_button = _refresh
+
+var _refresh_queued := false
 
 
 func _ready() -> void:
 	if not Engine.is_editor_hint():
 		return
+	if not changed.is_connected(_queue_refresh):
+		changed.connect(_queue_refresh) # fires while you paint
+	_queue_refresh()
 
-	_update_marker()
-	update_configuration_warnings()
 
-
-# Shows a yellow warning triangle on the node in the scene dock
 func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := PackedStringArray()
+	var problem := _validate()
+	return PackedStringArray([problem]) if problem != "" else PackedStringArray()
+
+
+# --- validation ------------------------------------------------------------
+## Returns "" when the painted piece is valid, otherwise what is wrong.
+func _validate() -> String:
 	if tile_set == null:
-		warnings.append("Assign a TileSet so the pivot marker can be placed.")
-	if posmod(pivot.x - pivot.y, 2) != 0:
-		warnings.append(
-			"pivot2 %s is on a cell edge. Use (even, even) for a cell center or (odd, odd) for a corner."
-			% pivot,
-		)
-	return warnings
-
-
-func _get_property_list() -> Array[Dictionary]:
-	var props: Array[Dictionary] = [
-		{ "name": &"PiecePainter", "type": TYPE_NIL, "usage": PROPERTY_USAGE_CATEGORY },
-		{ "name": &"piece_name", "type": TYPE_STRING, "usage": PROPERTY_USAGE_DEFAULT },
-		{ "name": &"Settings", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP },
-		{ "name": &"weight", "type": TYPE_FLOAT, "usage": PROPERTY_USAGE_DEFAULT },
-		{ "name": &"pivot", "type": TYPE_VECTOR2I, "usage": PROPERTY_USAGE_DEFAULT },
-		{
-			"name": &"save_path",
-			"type": TYPE_STRING,
-			"usage": PROPERTY_USAGE_DEFAULT,
-			"hint": PROPERTY_HINT_DIR,
-		},
-		{
-			"name": &"Save Piece",
-			"type": TYPE_CALLABLE,
-			"usage": PROPERTY_USAGE_EDITOR,
-			"hint": PROPERTY_HINT_TOOL_BUTTON,
-			"hint_string": "Save Piece",
-		},
-	]
-
-	return props
-
-
-func _get(property: StringName) -> Variant:
-	if property == &"Save Piece":
-		return _save_piece
-	return null
-
-
-func _save_piece() -> void:
-	if posmod(pivot.x - pivot.y, 2) != 0:
-		push_error("pivot2 %s is on a cell edge. Use (even, even) or (odd, odd)." % pivot)
-		return
-	if piece_name.strip_edges().is_empty():
-		push_warning("Piece Name cannot be empty.")
-		return
-
+		return "Assign a TileSet."
 	var used := get_used_cells()
 	if used.is_empty():
-		push_warning("Nothing painted.")
-		return
+		return "Nothing painted."
+	if posmod(pivot.x - pivot.y, 2) != 0:
+		return "pivot %s is on a cell edge. Use (even, even) or (odd, odd)." % pivot
 
 	var source := get_cell_source_id(used[0])
 	for c in used:
 		if get_cell_source_id(c) != source:
-			push_error("All cells must come from the same TileSet source (error at %s)." % c)
-			return
+			return "Mixed TileSet sources at %s." % c
 		if get_cell_alternative_tile(c) != 0:
-			push_error("Cell %s uses an alternative tile. Paint unrotated, default tiles only." % c)
-			return
+			return "Cell %s uses an alternative tile. Paint unrotated, default tiles only." % c
+	return ""
 
+
+# --- refresh (coalesced: painting fires many change events) ------------------
+func _queue_refresh() -> void:
+	if _refresh_queued or not Engine.is_editor_hint() or not is_inside_tree():
+		return
+	_refresh_queued = true
+	_refresh.call_deferred()
+
+
+func _refresh() -> void:
+	_refresh_queued = false
+	update_configuration_warnings()
+	_update_pivot_marker()
+	_rebuild_preview()
+
+
+func _update_pivot_marker() -> void:
+	if tile_set == null:
+		return
+	var marker := _get_marker(self, MARKER_NAME, true)
+	# Cell centers sit at even pivot, shared corners at odd pivot
+	marker.position = Vector2(pivot + Vector2i.ONE) * Vector2(tile_set.tile_size) * 0.5
+
+
+# --- preview: the four orientations, to the right of the painting ------------
+func _rebuild_preview() -> void:
+	var preview := _get_preview()
+	preview.clear()
+	for r in 4:
+		_get_marker(preview, "Pivot%d" % r, false).visible = false
+	if _validate() != "":
+		return
+
+	var piece := _build_piece()
+	var tile := Vector2(tile_set.tile_size)
+
+	# Bounds over all four orientations, so the slots never overlap
+	var lo := Vector2i.MAX
+	var hi := Vector2i.MIN
+	for r in 4:
+		for c in piece.get_cells(r):
+			lo = lo.min(c)
+			hi = hi.max(c)
+
+	var rect := get_used_rect()
+	var spacing := hi.x - lo.x + 2 # one empty column between orientations
+	var start := Vector2i(rect.end.x + 2, rect.position.y) - lo
+
+	for r in 4:
+		var cells := piece.get_cells(r)
+		var blocks := piece.get_blocks(r)
+		var origin := start + Vector2i(r * spacing, 0) # cell where the anchor lands
+		for i in cells.size():
+			Piece.paint(preview, origin + cells[i], blocks[i])
+
+		var marker := _get_marker(preview, "Pivot%d" % r, false)
+		marker.visible = true
+		marker.position = (
+			Vector2(origin) + (Vector2(piece.get_anchored_pivot()) + Vector2.ONE) * 0.5
+		) * tile
+
+
+# What you see in the preview is what the game gets: it uses the real Piece code
+func _build_piece() -> Piece:
 	var piece := Piece.new()
-	piece.pattern = get_pattern(used)
-	piece.pivot = pivot - (get_used_rect().position * 2)
+	piece.pattern = get_pattern(get_used_cells())
+	piece.pivot = pivot - get_used_rect().position * 2
+	piece.weight = weight
+	piece.setup()
+	return piece
+
+
+func _get_preview() -> TileMapLayer:
+	var preview := get_node_or_null(PREVIEW_NAME) as TileMapLayer
+	if preview == null:
+		preview = TileMapLayer.new()
+		preview.name = PREVIEW_NAME
+		add_child(preview) # no owner: never saved into the scene
+	preview.tile_set = tile_set
+	return preview
+
+
+## persist = true saves the marker in the scene, false keeps it editor-only
+func _get_marker(parent: Node, marker_name: String, persist: bool) -> Marker2D:
+	var marker := parent.get_node_or_null(marker_name) as Marker2D
+	if marker == null:
+		marker = Marker2D.new()
+		marker.name = marker_name
+		marker.gizmo_extents = 6.0 # default covers a whole 16 px tile
+		parent.add_child(marker)
+		if persist:
+			marker.owner = get_tree().edited_scene_root
+	return marker
+
+
+# --- actions -----------------------------------------------------------------
+func _load_piece() -> void:
+	if piece_to_edit == null:
+		push_warning("Drop a Piece resource into 'piece_to_edit' first.")
+		return
+	clear()
+	set_pattern(Vector2i.ZERO, piece_to_edit.pattern) # patterns start at (0,0)
+	pivot = piece_to_edit.pivot
+	weight = piece_to_edit.weight
+	piece_name = piece_to_edit.resource_path.get_file().get_basename()
+	save_dir = piece_to_edit.resource_path.get_base_dir()
+	_queue_refresh()
+
+
+func _save_piece() -> void:
+	var problem := _validate()
+	if problem != "":
+		push_error("Not saved: " + problem)
+		return
+	if piece_name.is_empty():
+		push_error("Not saved: piece_name is empty.")
+		return
+
+	DirAccess.make_dir_recursive_absolute(save_dir)
+	var path := save_dir.path_join(piece_name + ".tres")
+
+	# Update in place, so fields you set by hand in the .tres survive
+	var piece: Piece = null
+	if ResourceLoader.exists(path):
+		piece = load(path) as Piece
+	var created := piece == null
+	if created:
+		piece = Piece.new()
+		piece.take_over_path(path)
+
+	piece.pattern = get_pattern(get_used_cells())
+	piece.pivot = pivot - get_used_rect().position * 2
 	piece.weight = weight
 
-	DirAccess.make_dir_recursive_absolute(save_path)
-	var path := save_path.path_join("%s.tres" % piece_name)
-	piece.take_over_path(path)
 	var err := ResourceSaver.save(piece, path)
-	if err == OK:
-		print("Saved %s (%d cells)" % [path, used.size()])
-	else:
+	if err != OK:
 		push_error("Could not save %s (error %d)" % [path, err])
-
-
-func _update_marker() -> void:
-	# Setters also run while the scene loads, before the node is in the tree
-	if not is_inside_tree() or tile_set == null:
 		return
-	if not Engine.is_editor_hint():
-		return
+	piece.emit_changed()
+	EditorInterface.get_resource_filesystem().update_file(path)
+	print("%s %s (%d cells)" % ["Created" if created else "Updated", path, get_used_cells().size()])
 
-	_pivot_marker.position = Vector2(pivot + Vector2i.ONE) * Vector2(tile_set.tile_size) * 0.5
+
+func _clear_all() -> void:
+	clear()
+	piece_to_edit = null
+	piece_name = ""
+	weight = 1.0
+	pivot = Vector2i.ZERO
+	_queue_refresh()

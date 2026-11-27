@@ -2,15 +2,17 @@
 
 [ext_resource type="Script" uid="uid://cq5me8b5rs0gk" path="res://scenes/tools/piece_painter.gd" id="1_2jswv"]
 [ext_resource type="TileSet" uid="uid://cw55dvkw2bu20" path="res://assets/tetris_patterns.tres" id="1_c5q10"]
+[ext_resource type="Resource" uid="uid://cgylnm0p2cv00" path="res://assets/pieces/eggplant.tres" id="3_qaf8p"]
 
 [node name="PiecePainter" type="TileMapLayer" unique_id=1006648583]
-tile_map_data = PackedByteArray(0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 9, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0, 9, 0, 0, 0, 2, 0, 0, 0, 1, 0, 5, 0, 9, 0, 0, 0, 3, 0, 0, 0, 1, 0, 6, 0, 9, 0, 0, 0)
+tile_map_data = PackedByteArray(0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 4, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 5, 0, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 6, 0, 0, 0, 1, 0, 2, 0, 1, 0, 1, 0, 6, 0, 0, 0)
 tile_set = ExtResource("1_c5q10")
 script = ExtResource("1_2jswv")
-piece_name = "mushroom"
-weight = 1.0
-pivot = Vector2i(3, 1)
-save_path = "res://assets/pieces"
+piece_name = "eggplant"
+pivot = Vector2i(0, 2)
+save_dir = "res://assets/pieces"
+piece_to_edit = ExtResource("3_qaf8p")
 
-[node name="PivotMarker" type="Marker2D" parent="." unique_id=1173117391]
-position = Vector2(32, 16)
+[node name="PivotMarker" type="Marker2D" parent="." unique_id=1494675919]
+position = Vector2(8, 24)
+gizmo_extents = 6.0

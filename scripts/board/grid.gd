@@ -79,6 +79,13 @@ func clear_lines() -> int:
 	return cleared
 
 
+## Helper for [CpuController]
+func copy() -> Grid:
+	var grid := Grid.new(_width, _height)
+	grid._cells = _cells.duplicate()
+	return grid
+
+
 func get_width() -> int:
 	return _width
 
